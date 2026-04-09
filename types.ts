@@ -40,6 +40,8 @@ export interface UpdateScoresResult {
   playersUpdated?: number;
   teamsUpdated?: number;
   error?: string;
+  /** ISO time when a successful sync finished (for “Last sync” UI) */
+  syncedAt?: string;
   /** Seconds until another public sync is allowed (HTTP 429) */
   retryAfterSeconds?: number;
 }

@@ -185,6 +185,7 @@ async function runScoreUpdateInner(): Promise<UpdateScoresResult> {
     tournamentId: tid,
     playersUpdated,
     teamsUpdated,
+    syncedAt: new Date().toISOString(),
   };
 }
 

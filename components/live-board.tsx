@@ -33,19 +33,30 @@ export function LiveBoard({
   const [loading, setLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [error, setError] = useState<string | null>(configError ?? null);
+  /** Server time from last successful sync response (so “Last sync” updates even if row fetch lags). */
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const lastUpdated = useMemo(() => {
-    if (!players.length) return null;
-    const times = players
-      .map((p) => new Date(p.last_updated).getTime())
-      .filter((t) => Number.isFinite(t));
-    if (times.length === 0) return null;
+    let best: number | null = null;
+    if (lastSyncedAt) {
+      const t = new Date(lastSyncedAt).getTime();
+      if (Number.isFinite(t)) best = t;
+    }
+    if (players.length) {
+      for (const p of players) {
+        const t = new Date(p.last_updated).getTime();
+        if (Number.isFinite(t)) {
+          best = best === null ? t : Math.max(best, t);
+        }
+      }
+    }
+    if (best === null) return null;
     try {
-      return new Date(Math.max(...times)).toISOString();
+      return new Date(best).toISOString();
     } catch {
       return null;
     }
-  }, [players]);
+  }, [players, lastSyncedAt]);
 
   const load = useCallback(async () => {
     if (configError) return;
@@ -80,6 +91,7 @@ export function LiveBoard({
         ok?: boolean;
         message?: string;
         retryAfterSeconds?: number;
+        syncedAt?: string;
       };
       if (res.status === 429) {
         setError(
@@ -101,6 +113,7 @@ export function LiveBoard({
         );
         return;
       }
+      setLastSyncedAt(j.syncedAt ?? new Date().toISOString());
       await load();
     } catch {
       setError("Score sync request failed.");
