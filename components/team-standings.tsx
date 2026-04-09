@@ -26,7 +26,14 @@ import { cn } from "@/lib/utils";
 
 type SortKey = "rank" | "name" | "total";
 
-const TEAM_ORDER = ["CHUCK", "GG", "EMIL", "SKIP", "BHO", "MORC"];
+const TEAM_ORDER = [
+  "Skip",
+  "Morc",
+  "GG",
+  "Emil",
+  "Chuck",
+  "Bho",
+];
 
 export function TeamStandings({
   teams,

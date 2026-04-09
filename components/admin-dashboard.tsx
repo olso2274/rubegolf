@@ -15,7 +15,14 @@ import {
 import { upsertPoolPlayer } from "@/app/admin/actions";
 import type { PoolPlayerRow } from "@/types";
 
-const TEAMS = ["CHUCK", "GG", "EMIL", "SKIP", "BHO", "MORC"];
+const TEAMS = [
+  "Skip",
+  "Morc",
+  "GG",
+  "Emil",
+  "Chuck",
+  "Bho",
+];
 
 export function AdminDashboard({ players }: { players: PoolPlayerRow[] }) {
   const [msg, setMsg] = useState<string | null>(null);

@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const TEAM_COLORS: Record<string, string> = {
-  CHUCK: "bg-sky-600",
-  GG: "bg-violet-600",
-  EMIL: "bg-orange-600",
-  SKIP: "bg-rose-600",
-  BHO: "bg-blue-700",
-  MORC: "bg-teal-600",
+  Skip: "bg-sky-600",
+  Morc: "bg-violet-600",
+  GG: "bg-masters-green",
+  Emil: "bg-rose-600",
+  Chuck: "bg-blue-700",
+  Bho: "bg-teal-600",
 };
 
 export function teamBadgeClass(name: string) {
