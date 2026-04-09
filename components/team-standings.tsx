@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -396,6 +397,9 @@ export function TeamStandings({
             <DialogTitle className="font-display text-2xl text-amber-700">
               {openTeam} — players
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Full team roster with today, thru, and total scores.
+            </DialogDescription>
           </DialogHeader>
           {openTeam && (
             <TeamScorecardTable
