@@ -36,6 +36,16 @@ export function TeamStandings({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [openTeam, setOpenTeam] = useState<string | null>(null);
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+
+  const toggleRoster = (name: string) => {
+    setExpandedTeams((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   const sorted = useMemo(() => {
     const list = [...teams];
@@ -63,8 +73,8 @@ export function TeamStandings({
             Team standings
           </CardTitle>
           <p className="text-sm text-masters-ink/60">
-            Players are listed under each team. Tap a team for full Today / Thru /
-            Pos. Lowest combined score wins.
+            Use the arrow beside each team to show or hide players. Click the team
+            total or → for full Today / Thru / Pos. Lowest combined score wins.
           </p>
         </CardHeader>
         <CardContent className="p-0">
@@ -97,42 +107,87 @@ export function TeamStandings({
                 {sorted.map((t) => {
                   const isLeader = t.name === leaderName;
                   const roster = playersByTeam[t.name] ?? [];
+                  const expanded = expandedTeams.has(t.name);
                   return (
                     <TableRow
                       key={t.name}
                       data-state={openTeam === t.name ? "selected" : undefined}
-                      className={cn(
-                        "cursor-pointer align-top",
-                        isLeader && "bg-emerald-50/80"
-                      )}
-                      onClick={() => setOpenTeam(t.name)}
+                      className={cn("align-top", isLeader && "bg-emerald-50/80")}
                     >
                       <TableCell className="font-medium">
                         {t.rank ?? "—"}
                       </TableCell>
                       <TableCell className="max-w-md">
-                        <Badge
-                          variant="gold"
-                          className={cn(
-                            "text-white shadow-sm",
-                            teamBadgeClass(t.name)
-                          )}
-                        >
-                          {t.name}
-                        </Badge>
-                        <TeamRosterInline rows={roster} />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className={cn(
+                              "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-masters-green/20 bg-white/90 text-masters-green shadow-sm transition hover:bg-masters-green/10",
+                              expanded && "bg-masters-green/10"
+                            )}
+                            aria-expanded={expanded}
+                            aria-label={
+                              expanded
+                                ? `Hide ${t.name} players`
+                                : `Show ${t.name} players`
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleRoster(t.name);
+                            }}
+                          >
+                            <ChevronRight
+                              className={cn(
+                                "h-4 w-4 transition-transform duration-200",
+                                expanded && "rotate-90"
+                              )}
+                            />
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <Badge
+                              variant="gold"
+                              className={cn(
+                                "text-white shadow-sm",
+                                teamBadgeClass(t.name)
+                              )}
+                            >
+                              {t.name}
+                            </Badge>
+                            {expanded && <TeamRosterInline rows={roster} />}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell
                         className={cn(
-                          "text-right text-lg tabular-nums font-semibold align-top",
+                          "cursor-pointer text-right text-lg tabular-nums font-semibold align-top transition hover:opacity-80",
                           cnScore(t.score_display)
                         )}
+                        onClick={() => setOpenTeam(t.name)}
+                        title="Open full scorecard"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setOpenTeam(t.name);
+                          }
+                        }}
                       >
                         {t.score_display}
                       </TableCell>
                       <TableCell
-                        className="text-masters-ink/40 align-top pt-5"
-                        aria-hidden
+                        className="cursor-pointer align-top pt-5 text-masters-ink/40 hover:text-masters-green"
+                        onClick={() => setOpenTeam(t.name)}
+                        title="Open full scorecard"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setOpenTeam(t.name);
+                          }
+                        }}
+                        aria-label={`Open ${t.name} scorecard`}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </TableCell>
@@ -147,45 +202,74 @@ export function TeamStandings({
             {sorted.map((t) => {
               const isLeader = t.name === leaderName;
               const roster = playersByTeam[t.name] ?? [];
+              const expanded = expandedTeams.has(t.name);
               return (
-                <button
+                <div
                   key={t.name}
-                  type="button"
-                  onClick={() => setOpenTeam(t.name)}
                   className={cn(
-                    "flex w-full flex-col gap-3 px-4 py-4 text-left transition-colors hover:bg-masters-green/5",
+                    "px-4 py-4 transition-colors",
                     isLeader && "bg-emerald-50/80"
                   )}
                 >
-                  <div className="flex w-full items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-lg font-semibold text-masters-green">
-                        {t.rank ?? "—"}
-                      </span>
-                      <Badge
-                        variant="gold"
+                  <div className="flex w-full items-start gap-2">
+                    <button
+                      type="button"
+                      className={cn(
+                        "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-masters-green/20 bg-white/90 text-masters-green shadow-sm",
+                        expanded && "bg-masters-green/10"
+                      )}
+                      aria-expanded={expanded}
+                      aria-label={
+                        expanded
+                          ? `Hide ${t.name} players`
+                          : `Show ${t.name} players`
+                      }
+                      onClick={() => toggleRoster(t.name)}
+                    >
+                      <ChevronRight
                         className={cn(
-                          "text-white shadow-sm",
-                          teamBadgeClass(t.name)
+                          "h-4 w-4 transition-transform duration-200",
+                          expanded && "rotate-90"
                         )}
-                      >
-                        {t.name}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "text-xl tabular-nums font-semibold",
-                          cnScore(t.score_display)
-                        )}
-                      >
-                        {t.score_display}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-masters-ink/40" />
+                      />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="min-w-[2rem] text-lg font-semibold text-masters-green">
+                          {t.rank ?? "—"}
+                        </span>
+                        <Badge
+                          variant="gold"
+                          className={cn(
+                            "text-white shadow-sm",
+                            teamBadgeClass(t.name)
+                          )}
+                        >
+                          {t.name}
+                        </Badge>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 rounded-md px-1 py-1 text-masters-ink/70 hover:bg-masters-green/10 hover:text-masters-green"
+                          onClick={() => setOpenTeam(t.name)}
+                          aria-label={`Open ${t.name} full scorecard`}
+                        >
+                          <span
+                            className={cn(
+                              "text-xl tabular-nums font-semibold",
+                              cnScore(t.score_display)
+                            )}
+                          >
+                            {t.score_display}
+                          </span>
+                          <ChevronRight className="h-5 w-5 shrink-0" />
+                        </button>
+                      </div>
+                      {expanded && (
+                        <TeamRosterInline rows={roster} className="mt-3 w-full" />
+                      )}
                     </div>
                   </div>
-                  <TeamRosterInline rows={roster} className="w-full pl-12" />
-                </button>
+                </div>
               );
             })}
           </div>
