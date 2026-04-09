@@ -8,6 +8,10 @@ const PGA_HEADERS = {
 };
 
 export async function fetchCurrentTournamentId(): Promise<string | null> {
+  /** When `message.json` has no Masters / wrong “current” event (common Masters week), set in Vercel. */
+  const override = process.env.PGA_TOURNAMENT_ID?.trim();
+  if (override) return override;
+
   try {
     const res = await fetch(
       "https://statdata.pgatour.com/r/current/message.json",
