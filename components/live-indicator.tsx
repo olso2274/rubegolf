@@ -10,7 +10,7 @@ const TEAM_COLORS: Record<string, string> = {
   Morc: "bg-violet-600",
   GG: "bg-masters-green",
   Emil: "bg-rose-600",
-  Chuck: "bg-blue-700",
+  Chuck: "bg-pink-600",
   Bho: "bg-teal-600",
 };
 
