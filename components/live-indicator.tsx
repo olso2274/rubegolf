@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,24 +32,15 @@ export function LiveIndicator({
   loading?: boolean;
   syncLoading?: boolean;
 }) {
-  /**
-   * Format only after mount so SSR + first client paint match (no locale/timezone mismatch).
-   * Do not use a separate "mounted" flag with toLocaleString in the first render.
-   */
-  const [lastSyncLabel, setLastSyncLabel] = useState<string | null>(null);
-  useEffect(() => {
-    if (!lastUpdated) {
-      setLastSyncLabel(null);
-      return;
-    }
-    setLastSyncLabel(
-      new Date(lastUpdated).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      })
-    );
+  /** LiveBoard is client-only (dynamic ssr:false) — safe to format in render; avoids stale labels from useEffect lag. */
+  const lastSyncLabel = useMemo(() => {
+    if (!lastUpdated) return null;
+    return new Date(lastUpdated).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }, [lastUpdated]);
 
   return (

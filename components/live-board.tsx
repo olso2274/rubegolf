@@ -33,26 +33,29 @@ export function LiveBoard({
   const [loading, setLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [error, setError] = useState<string | null>(configError ?? null);
-  /** Server time from last successful sync response (so “Last sync” updates even if row fetch lags). */
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  /** Server time from last successful sync; also persisted so refresh keeps the banner accurate. */
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return sessionStorage.getItem("masters_last_sync");
+    } catch {
+      return null;
+    }
+  });
 
   const lastUpdated = useMemo(() => {
-    let best: number | null = null;
+    const candidates: number[] = [];
     if (lastSyncedAt) {
       const t = new Date(lastSyncedAt).getTime();
-      if (Number.isFinite(t)) best = t;
+      if (Number.isFinite(t)) candidates.push(t);
     }
-    if (players.length) {
-      for (const p of players) {
-        const t = new Date(p.last_updated).getTime();
-        if (Number.isFinite(t)) {
-          best = best === null ? t : Math.max(best, t);
-        }
-      }
+    for (const p of players) {
+      const t = new Date(p.last_updated).getTime();
+      if (Number.isFinite(t)) candidates.push(t);
     }
-    if (best === null) return null;
+    if (candidates.length === 0) return null;
     try {
-      return new Date(best).toISOString();
+      return new Date(Math.max(...candidates)).toISOString();
     } catch {
       return null;
     }
@@ -113,7 +116,15 @@ export function LiveBoard({
         );
         return;
       }
-      setLastSyncedAt(j.syncedAt ?? new Date().toISOString());
+      {
+        const iso = j.syncedAt ?? new Date().toISOString();
+        setLastSyncedAt(iso);
+        try {
+          sessionStorage.setItem("masters_last_sync", iso);
+        } catch {
+          /* ignore quota / private mode */
+        }
+      }
       await load();
     } catch {
       setError("Score sync request failed.");
