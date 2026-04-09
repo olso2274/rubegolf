@@ -63,7 +63,8 @@ export function TeamStandings({
             Team standings
           </CardTitle>
           <p className="text-sm text-masters-ink/60">
-            Tap a team for player rows. Lowest combined score wins.
+            Players are listed under each team. Tap a team for full Today / Thru /
+            Pos. Lowest combined score wins.
           </p>
         </CardHeader>
         <CardContent className="p-0">
@@ -95,12 +96,13 @@ export function TeamStandings({
               <TableBody>
                 {sorted.map((t) => {
                   const isLeader = t.name === leaderName;
+                  const roster = playersByTeam[t.name] ?? [];
                   return (
                     <TableRow
                       key={t.name}
                       data-state={openTeam === t.name ? "selected" : undefined}
                       className={cn(
-                        "cursor-pointer",
+                        "cursor-pointer align-top",
                         isLeader && "bg-emerald-50/80"
                       )}
                       onClick={() => setOpenTeam(t.name)}
@@ -108,7 +110,7 @@ export function TeamStandings({
                       <TableCell className="font-medium">
                         {t.rank ?? "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="max-w-md">
                         <Badge
                           variant="gold"
                           className={cn(
@@ -118,17 +120,18 @@ export function TeamStandings({
                         >
                           {t.name}
                         </Badge>
+                        <TeamRosterInline rows={roster} />
                       </TableCell>
                       <TableCell
                         className={cn(
-                          "text-right text-lg tabular-nums font-semibold",
+                          "text-right text-lg tabular-nums font-semibold align-top",
                           cnScore(t.score_display)
                         )}
                       >
                         {t.score_display}
                       </TableCell>
                       <TableCell
-                        className="text-masters-ink/40"
+                        className="text-masters-ink/40 align-top pt-5"
                         aria-hidden
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -143,41 +146,45 @@ export function TeamStandings({
           <div className="md:hidden divide-y divide-masters-green/10">
             {sorted.map((t) => {
               const isLeader = t.name === leaderName;
+              const roster = playersByTeam[t.name] ?? [];
               return (
                 <button
                   key={t.name}
                   type="button"
                   onClick={() => setOpenTeam(t.name)}
                   className={cn(
-                    "flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-masters-green/5",
+                    "flex w-full flex-col gap-3 px-4 py-4 text-left transition-colors hover:bg-masters-green/5",
                     isLeader && "bg-emerald-50/80"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 text-lg font-semibold text-masters-green">
-                      {t.rank ?? "—"}
-                    </span>
-                    <Badge
-                      variant="gold"
-                      className={cn(
-                        "text-white shadow-sm",
-                        teamBadgeClass(t.name)
-                      )}
-                    >
-                      {t.name}
-                    </Badge>
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 text-lg font-semibold text-masters-green">
+                        {t.rank ?? "—"}
+                      </span>
+                      <Badge
+                        variant="gold"
+                        className={cn(
+                          "text-white shadow-sm",
+                          teamBadgeClass(t.name)
+                        )}
+                      >
+                        {t.name}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "text-xl tabular-nums font-semibold",
+                          cnScore(t.score_display)
+                        )}
+                      >
+                        {t.score_display}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-masters-ink/40" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "text-xl tabular-nums font-semibold",
-                        cnScore(t.score_display)
-                      )}
-                    >
-                      {t.score_display}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-masters-ink/40" />
-                  </div>
+                  <TeamRosterInline rows={roster} className="w-full pl-12" />
                 </button>
               );
             })}
@@ -201,6 +208,61 @@ export function TeamStandings({
   );
 }
 
+function playerTotalDisplay(p: PoolPlayerRow): string {
+  if (p.total_to_par === 0) return "E";
+  if (p.total_to_par > 0) return `+${p.total_to_par}`;
+  return String(p.total_to_par);
+}
+
+function TeamRosterInline({
+  rows,
+  className,
+}: {
+  rows: PoolPlayerRow[];
+  className?: string;
+}) {
+  const sorted = [...rows].sort((a, b) =>
+    a.full_name.localeCompare(b.full_name)
+  );
+  if (sorted.length === 0) {
+    return (
+      <p className={cn("mt-2 text-xs text-masters-ink/50", className)}>
+        No players in pool yet.
+      </p>
+    );
+  }
+  return (
+    <ul
+      className={cn(
+        "mt-2 space-y-1 border-t border-masters-green/10 pt-2 text-xs sm:text-sm",
+        className
+      )}
+    >
+      {sorted.map((p) => {
+        const td = playerTotalDisplay(p);
+        return (
+          <li
+            key={p.id}
+            className="flex items-baseline justify-between gap-2 text-masters-ink/90"
+          >
+            <span className="min-w-0 break-words font-medium leading-snug">
+              {p.full_name}
+            </span>
+            <span
+              className={cn(
+                "shrink-0 tabular-nums text-xs font-semibold sm:text-sm",
+                cnScore(td)
+              )}
+            >
+              {td}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function PlayerTable({ rows }: { rows: PoolPlayerRow[] }) {
   const sorted = [...rows].sort((a, b) =>
     a.full_name.localeCompare(b.full_name)
@@ -220,12 +282,7 @@ function PlayerTable({ rows }: { rows: PoolPlayerRow[] }) {
         <tbody>
           {sorted.map((p) => {
             const active = p.status === "active";
-            const totalDisp =
-              p.total_to_par === 0
-                ? "E"
-                : p.total_to_par > 0
-                  ? `+${p.total_to_par}`
-                  : String(p.total_to_par);
+            const totalDisp = playerTotalDisplay(p);
             return (
               <tr
                 key={p.id}
