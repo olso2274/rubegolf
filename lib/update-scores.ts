@@ -58,6 +58,18 @@ function teamTotalFromBestScores(
 }
 
 export async function runScoreUpdate(): Promise<UpdateScoresResult> {
+  try {
+    return await runScoreUpdateInner();
+  } catch (e) {
+    return {
+      ok: false,
+      message: "Unexpected error during score update",
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+async function runScoreUpdateInner(): Promise<UpdateScoresResult> {
   let supabase;
   try {
     supabase = createServiceSupabase();

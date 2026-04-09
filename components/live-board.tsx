@@ -88,8 +88,17 @@ export function LiveBoard({
         );
         return;
       }
-      if (!res.ok || !j.ok) {
+      if (!res.ok) {
         setError(j.message ?? "Score sync failed.");
+        return;
+      }
+      if (!j.ok) {
+        const err = j as { message?: string; error?: string };
+        setError(
+          [err.message ?? "Score sync did not complete.", err.error]
+            .filter(Boolean)
+            .join(" — ")
+        );
         return;
       }
       await load();

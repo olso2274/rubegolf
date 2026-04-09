@@ -1,4 +1,4 @@
-import { LiveBoard } from "@/components/live-board";
+import { LiveBoardClient } from "@/components/live-board-client";
 import { createServerAnonClient } from "@/lib/supabase";
 import type { PoolPlayerRow, TeamRow } from "@/types";
 
@@ -11,7 +11,7 @@ export default async function Home() {
   if (!url || !key) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <LiveBoard
+        <LiveBoardClient
           initialTeams={[]}
           initialPlayers={[]}
           configError="Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local"
@@ -31,7 +31,7 @@ export default async function Home() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <LiveBoard
+      <LiveBoardClient
         initialTeams={initialTeams}
         initialPlayers={initialPlayers}
         configError={

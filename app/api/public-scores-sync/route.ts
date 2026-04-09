@@ -57,7 +57,8 @@ export async function POST() {
       }
     }
 
-    return NextResponse.json(result, { status: result.ok ? 200 : 502 });
+    /** Always 200 so the browser does not log “failed resource” for expected PGA/DB outcomes (`ok: false`). */
+    return NextResponse.json(result, { status: 200 });
   } catch (e) {
     console.error("[public-scores-sync]", e);
     return NextResponse.json(
