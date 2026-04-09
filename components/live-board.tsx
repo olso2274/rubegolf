@@ -96,7 +96,18 @@ export function LiveBoard({
   useEffect(() => {
     if (configError) return;
     let cancelled = false;
-    const supabase = createBrowserSupabase();
+    let supabase: ReturnType<typeof createBrowserSupabase> | null = null;
+    try {
+      supabase = createBrowserSupabase();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Supabase is not configured in this build (check NEXT_PUBLIC_* env on Vercel and redeploy)."
+      );
+      return;
+    }
+
     const channel = supabase
       .channel("masters-realtime")
       .on(
