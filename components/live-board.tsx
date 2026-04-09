@@ -60,6 +60,7 @@ export function LiveBoard({
   const load = useCallback(async () => {
     if (configError) return;
     setLoading(true);
+    setError(null);
     try {
       const supabase = createBrowserSupabase();
       const [tRes, pRes] = await Promise.all([
@@ -70,7 +71,6 @@ export function LiveBoard({
       if (pRes.error) throw pRes.error;
       setTeams((tRes.data as TeamRow[]) ?? []);
       setPlayers((pRes.data as PoolPlayerRow[]) ?? []);
-      setError(null);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Could not load leaderboard data."
