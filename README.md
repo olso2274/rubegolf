@@ -7,6 +7,10 @@ Live-updating **Masters fantasy pool** leaderboard for six teams and forty-eight
 
 Data source (unofficial, public): PGA Tour `statdata.pgatour.com` JSON (`message.json` → tournament id → `leaderboard-v2mini.json` / `leaderboard-v2.json`).
 
+### Team scoring (best 4 of 8)
+
+Each team has **8** roster players. **Team total to par** is the sum of the **4 best** (lowest) individual **total to par** values among those eight — the other four do not count toward the team score. Teams are **ranked by that combined total** (lowest / best first). Each player row still shows that golfer’s real tournament numbers from the leaderboard feed.
+
 ## Why not Vercel Cron on Hobby?
 
 Vercel **Hobby** plans only allow **daily** cron schedules. This project uses **GitHub Actions** on a `*/5 * * * *` schedule to `POST` your production `/api/update-scores` with `CRON_SECRET` instead (see [`.github/workflows/sync-scores.yml`](./.github/workflows/sync-scores.yml)).

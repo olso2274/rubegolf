@@ -73,8 +73,9 @@ export function TeamStandings({
             Team standings
           </CardTitle>
           <p className="text-sm text-masters-ink/60">
-            Use the arrow beside each team to show or hide players. Click the team
-            total or → for full Today / Thru / Pos. Lowest combined score wins.
+            Team total = sum of each team&apos;s <strong>4 best</strong> (lowest)
+            scores of 8. Use the arrow to expand rosters. Click total or → for full
+            Today / Thru / Pos. Lowest team total wins.
           </p>
         </CardHeader>
         <CardContent className="p-0">

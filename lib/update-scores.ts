@@ -8,6 +8,34 @@ import {
 import { buildLeaderboardMap, findLeaderboardRow } from "@/lib/matching";
 import type { UpdateScoresResult } from "@/types";
 
+/** Count best ball scores per team (Masters-style: 4 lowest of 8). */
+const BEST_BALL_COUNT = 4;
+
+/**
+ * Value used when ordering players to pick the "best" scores for the team total.
+ * Lower is better in stroke play. Unmatched players sort last.
+ */
+function totalForBestBallRanking(totalToPar: number, status: string): number {
+  if (status === "pending") return Number.POSITIVE_INFINITY;
+  return totalToPar;
+}
+
+/** Sum of the `take` lowest (best) finite scores among the team's players. */
+function teamTotalFromBestScores(
+  scores: number[],
+  take: number = BEST_BALL_COUNT
+): number {
+  const finite = scores.filter(
+    (x) => typeof x === "number" && Number.isFinite(x) && x < Number.POSITIVE_INFINITY
+  );
+  if (finite.length === 0) return 0;
+  finite.sort((a, b) => a - b);
+  const n = Math.min(take, finite.length);
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += finite[i];
+  return sum;
+}
+
 export async function runScoreUpdate(): Promise<UpdateScoresResult> {
   let supabase;
   try {
@@ -56,7 +84,7 @@ export async function runScoreUpdate(): Promise<UpdateScoresResult> {
   }
 
   let playersUpdated = 0;
-  const teamTotals = new Map<string, number>();
+  const teamScoreLists = new Map<string, number[]>();
 
   for (const row of poolRows) {
     const lb = findLeaderboardRow(row.full_name, map);
@@ -84,9 +112,17 @@ export async function runScoreUpdate(): Promise<UpdateScoresResult> {
 
     if (!upErr) playersUpdated++;
 
+    const rankingScore = totalForBestBallRanking(totalToPar, status);
+    const list = teamScoreLists.get(row.team_name) ?? [];
+    list.push(rankingScore);
+    teamScoreLists.set(row.team_name, list);
+  }
+
+  const teamTotals = new Map<string, number>();
+  for (const [name, scores] of teamScoreLists) {
     teamTotals.set(
-      row.team_name,
-      (teamTotals.get(row.team_name) ?? 0) + totalToPar
+      name,
+      teamTotalFromBestScores(scores, BEST_BALL_COUNT)
     );
   }
 
