@@ -204,7 +204,9 @@ export function LiveBoard({
 
       {error && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {error} — showing last known values when available.
+          {error.includes("showing last known values when available")
+            ? error
+            : `${error} — showing last known values when available.`}
         </p>
       )}
 

@@ -91,6 +91,10 @@ export async function resolveLeaderboardForTournament(): Promise<{
       /* try next */
     }
   }
+  const website = await fetchLeaderboardFromWebsite();
+  if (website && website.leaderboard.length > 0) {
+    return website;
+  }
   return null;
 }
 
@@ -334,6 +338,90 @@ export async function fetchLeaderboard(
   }
   if (lastErr) throw lastErr;
   throw new Error("leaderboard_fetch_failed");
+}
+
+function extractNextDataJson(html: string): Record<string, unknown> | null {
+  const match = html.match(
+    /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/
+  );
+  if (!match?.[1]) return null;
+  try {
+    return JSON.parse(match[1]) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fallback for when `statdata.pgatour.com` is blocked or flaky.
+ * The public PGA leaderboard page ships live leaderboard rows in `__NEXT_DATA__`.
+ */
+export async function fetchLeaderboardFromWebsite(): Promise<{
+  tid: string;
+  leaderboard: LeaderboardPlayer[];
+} | null> {
+  try {
+    const res = await fetch("https://www.pgatour.com/leaderboard", {
+      headers: PGA_HEADERS,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const nextData = extractNextDataJson(html);
+    if (!nextData) return null;
+
+    const props = (nextData.props as Record<string, unknown> | undefined)
+      ?.pageProps as Record<string, unknown> | undefined;
+    if (!props) return null;
+
+    const tid =
+      (props.leaderboardId as string | undefined) ??
+      (
+        (props.pageContext as Record<string, unknown> | undefined)
+          ?.tournaments as Array<Record<string, unknown>> | undefined
+      )?.[0]?.leaderboardId;
+    if (!tid || typeof tid !== "string") return null;
+
+    const queries =
+      (
+        (props.dehydratedState as Record<string, unknown> | undefined)
+          ?.queries as Array<Record<string, unknown>> | undefined
+      ) ?? [];
+
+    const leaderboardQuery = queries.find((q) => {
+      const key = q.queryKey;
+      return Array.isArray(key) && key[0] === "leaderboard";
+    });
+    if (!leaderboardQuery) return null;
+
+    const players =
+      (
+        ((leaderboardQuery.state as Record<string, unknown> | undefined)
+          ?.data as Record<string, unknown> | undefined)
+          ?.players as Array<Record<string, unknown>> | undefined
+      ) ?? [];
+    if (players.length === 0) return null;
+
+    const syntheticRows = players.map((row) => {
+      const player = row.player as Record<string, unknown> | undefined;
+      const scoring = row.scoringData as Record<string, unknown> | undefined;
+      return {
+        player,
+        playerState: scoring?.playerState,
+        roundStatus: scoring?.roundStatus,
+        position: scoring?.position,
+        score: scoring?.total,
+        today: scoring?.score,
+        thru: scoring?.thru,
+      } satisfies Record<string, unknown>;
+    });
+
+    const leaderboard = parseLeaderboardJson(syntheticRows);
+    if (leaderboard.length === 0) return null;
+    return { tid, leaderboard };
+  } catch {
+    return null;
+  }
 }
 
 export function parseLeaderboardJson(data: unknown): LeaderboardPlayer[] {
