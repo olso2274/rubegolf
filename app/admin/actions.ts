@@ -17,9 +17,8 @@ export async function upsertPoolPlayer(formData: FormData) {
   const idRaw = formData.get("id");
   const idStr = idRaw != null ? String(idRaw).trim() : "";
   const team_name = String(formData.get("team_name") ?? "").trim();
-  const pick_number = parseInt(String(formData.get("pick_number") ?? "0"), 10);
   const full_name = String(formData.get("full_name") ?? "").trim();
-  if (!team_name || !full_name || !pick_number) {
+  if (!team_name || !full_name) {
     return { ok: false, message: "Missing fields" };
   }
 
@@ -30,7 +29,6 @@ export async function upsertPoolPlayer(formData: FormData) {
       .from("pool_players")
       .update({
         team_name,
-        pick_number,
         full_name,
       })
       .eq("id", Number(idStr));
@@ -38,7 +36,6 @@ export async function upsertPoolPlayer(formData: FormData) {
   } else {
     const { error } = await supabase.from("pool_players").insert({
       team_name,
-      pick_number,
       full_name,
     });
     if (error) return { ok: false, message: error.message };

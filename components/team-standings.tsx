@@ -202,7 +202,9 @@ export function TeamStandings({
 }
 
 function PlayerTable({ rows }: { rows: PoolPlayerRow[] }) {
-  const sorted = [...rows].sort((a, b) => a.pick_number - b.pick_number);
+  const sorted = [...rows].sort((a, b) =>
+    a.full_name.localeCompare(b.full_name)
+  );
   return (
     <div className="overflow-x-auto rounded-lg border border-masters-green/15">
       <table className="w-full text-sm">

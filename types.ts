@@ -11,7 +11,6 @@ export interface TeamRow {
 export interface PoolPlayerRow {
   id: number;
   team_name: string;
-  pick_number: number;
   full_name: string;
   pga_id: string | null;
   today: string;

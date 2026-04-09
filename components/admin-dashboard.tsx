@@ -90,7 +90,6 @@ export function AdminDashboard({ players }: { players: PoolPlayerRow[] }) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Team</TableHead>
-                <TableHead>Pick</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead className="text-right">Today</TableHead>
                 <TableHead className="text-right">Total</TableHead>
@@ -100,7 +99,6 @@ export function AdminDashboard({ players }: { players: PoolPlayerRow[] }) {
               {players.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>{p.team_name}</TableCell>
-                  <TableCell>{p.pick_number}</TableCell>
                   <TableCell className="font-medium">{p.full_name}</TableCell>
                   <TableCell className="text-right">{p.today}</TableCell>
                   <TableCell className="text-right">{p.total_to_par}</TableCell>
@@ -145,18 +143,6 @@ function EditPlayerForm({ onDone }: { onDone: (m: string) => void }) {
             </option>
           ))}
         </select>
-      </label>
-      <label className="text-sm font-medium text-masters-ink">
-        Pick #
-        <input
-          name="pick_number"
-          type="number"
-          min={1}
-          max={8}
-          required
-          defaultValue={1}
-          className="mt-1 w-full rounded-md border border-masters-green/20 px-3 py-2"
-        />
       </label>
       <label className="text-sm font-medium text-masters-ink sm:col-span-2">
         Full name

@@ -24,7 +24,7 @@ export default async function AdminPage() {
     .from("pool_players")
     .select("*")
     .order("team_name", { ascending: true })
-    .order("pick_number", { ascending: true });
+    .order("full_name", { ascending: true });
 
   if (error) {
     return (

@@ -101,7 +101,8 @@ In [Supabase Dashboard](https://supabase.com/dashboard) → your project → **P
 ## 7. Seeding / editing data
 
 - **Initial seed** — run `supabase/schema.sql` once (creates tables + `INSERT` rosters).
-- **Populate / reset rosters only** (e.g. after connecting a new project) — open **Supabase → SQL Editor**, paste and run [`supabase/seed-rosters.sql`](./supabase/seed-rosters.sql). It deletes existing `pool_players` rows and inserts the six teams × eight players (names match your draft; parenthetical slot numbers are not stored).
+- **Populate / reset rosters only** — run [`supabase/seed-rosters.sql`](./supabase/seed-rosters.sql) in the SQL Editor (deletes `pool_players` then inserts 48 names).
+- **Dropped `pick_number` column** — if your DB was created with an older schema, run [`supabase/migration-drop-pick-number.sql`](./supabase/migration-drop-pick-number.sql) once, then redeploy.
 - **Edits** — `/admin` → adjust `pool_players` (unique `full_name`).
 
 ## 8. Project layout
