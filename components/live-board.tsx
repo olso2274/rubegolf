@@ -43,23 +43,19 @@ export function LiveBoard({
     }
   });
 
-  const lastUpdated = useMemo(() => {
-    const candidates: number[] = [];
-    if (lastSyncedAt) {
-      const t = new Date(lastSyncedAt).getTime();
-      if (Number.isFinite(t)) candidates.push(t);
-    }
-    for (const p of players) {
-      const t = new Date(p.last_updated).getTime();
-      if (Number.isFinite(t)) candidates.push(t);
-    }
-    if (candidates.length === 0) return null;
+  /** Newest `last_updated` on any pool row (when PGA sync last wrote scores). */
+  const databaseUpdatedAt = useMemo(() => {
+    if (!players.length) return null;
+    const times = players
+      .map((p) => new Date(p.last_updated).getTime())
+      .filter((t) => Number.isFinite(t));
+    if (times.length === 0) return null;
     try {
-      return new Date(Math.max(...candidates)).toISOString();
+      return new Date(Math.max(...times)).toISOString();
     } catch {
       return null;
     }
-  }, [players, lastSyncedAt]);
+  }, [players]);
 
   const load = useCallback(async () => {
     if (configError) return;
@@ -197,7 +193,8 @@ export function LiveBoard({
           </p>
         </div>
         <LiveIndicator
-          lastUpdated={lastUpdated}
+          lastSuccessfulSyncAt={lastSyncedAt}
+          databaseUpdatedAt={databaseUpdatedAt}
           onRefresh={() => void load()}
           onSyncScores={() => void syncScores()}
           loading={loading}

@@ -19,29 +19,46 @@ export function teamBadgeClass(name: string) {
 }
 
 export function LiveIndicator({
-  lastUpdated,
+  lastSuccessfulSyncAt,
+  databaseUpdatedAt,
   onRefresh,
   onSyncScores,
   loading,
   syncLoading,
 }: {
-  lastUpdated: string | null;
+  /** Set only after a successful POST /api/public-scores-sync (or sessionStorage restore). */
+  lastSuccessfulSyncAt: string | null;
+  /** Max of pool_players.last_updated — reflects last DB write from a sync. */
+  databaseUpdatedAt: string | null;
   onRefresh: () => void;
   /** Fetch PGA data and write to Supabase (rate-limited) */
   onSyncScores?: () => void;
   loading?: boolean;
   syncLoading?: boolean;
 }) {
-  /** LiveBoard is client-only (dynamic ssr:false) — safe to format in render; avoids stale labels from useEffect lag. */
-  const lastSyncLabel = useMemo(() => {
-    if (!lastUpdated) return null;
-    return new Date(lastUpdated).toLocaleString(undefined, {
+  /**
+   * “Last sync” only when we have a successful client-visible sync time.
+   * Otherwise “Data as of” so we don’t imply the Sync button worked when PGA has no event.
+   */
+  const { label, iso } = useMemo(() => {
+    if (lastSuccessfulSyncAt) {
+      return { label: "Last sync", iso: lastSuccessfulSyncAt } as const;
+    }
+    if (databaseUpdatedAt) {
+      return { label: "Data as of", iso: databaseUpdatedAt } as const;
+    }
+    return { label: null, iso: null } as const;
+  }, [lastSuccessfulSyncAt, databaseUpdatedAt]);
+
+  const timeLabel = useMemo(() => {
+    if (!iso) return null;
+    return new Date(iso).toLocaleString(undefined, {
       month: "short",
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
     });
-  }, [lastUpdated]);
+  }, [iso]);
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm text-masters-ink/80">
@@ -58,10 +75,9 @@ export function LiveIndicator({
           · Auto-sync via GitHub Actions (optional)
         </span>
       </span>
-      {lastUpdated && lastSyncLabel && (
+      {label && iso && timeLabel && (
         <span className="text-masters-ink/60">
-          Last sync:{" "}
-          <time dateTime={lastUpdated}>{lastSyncLabel}</time>
+          {label}: <time dateTime={iso}>{timeLabel}</time>
         </span>
       )}
       {onSyncScores && (
