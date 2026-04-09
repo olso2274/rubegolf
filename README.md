@@ -68,13 +68,27 @@ Response JSON includes `ok`, `message`, and optional `tournamentId`, `playersUpd
 
 ## 5. GitHub Actions (recommended for auto sync)
 
-1. In the GitHub repo: **Settings → Secrets and variables → Actions**, add:
+### How GitHub and Supabase connect (read this)
+
+- **Supabase credentials live only on the server:** your **Vercel** project env (and local **`.env.local`**). **Do not** commit Supabase keys to GitHub or paste them into Actions as plain text.
+- **GitHub Actions does not talk to Supabase directly.** The workflow only sends an HTTP request to **your deployed app** (`PRODUCTION_URL`). That app already has `SUPABASE_SERVICE_ROLE_KEY` and runs the PGA → Supabase update on the server.
+- So: **GitHub → Vercel URL + `CRON_SECRET` → your Next.js API → Supabase.** Connecting the repo to Supabase means wiring **Vercel** with Supabase env vars; GitHub only needs the two secrets below for the cron ping.
+
+### Optional: Supabase Dashboard → GitHub
+
+In [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Project Settings → Integrations**, you can **link your GitHub repo** for features like migration previews or CI. That is separate from the score-sync workflow and is optional.
+
+### Secrets to add on GitHub
+
+1. Repo → **Settings → Secrets and variables → Actions → New repository secret**:
    - **`PRODUCTION_URL`** — your live site root, e.g. `https://your-app.vercel.app` (no trailing slash)
-   - **`CRON_SECRET`** — **must match** `CRON_SECRET` in Vercel env
+   - **`CRON_SECRET`** — **exactly the same** value as `CRON_SECRET` in **Vercel** (and in `.env.local` if you use one)
 
-2. The workflow [`.github/workflows/sync-scores.yml`](./.github/workflows/sync-scores.yml) runs every **5 minutes** and calls `POST /api/update-scores` with the Bearer token.
+2. **Actions** tab → confirm workflows are allowed for this repo (not disabled for forks).
 
-3. Adjust or disable the schedule in the workflow file if you want fewer runs.
+3. The workflow [`.github/workflows/sync-scores.yml`](./.github/workflows/sync-scores.yml) runs every **5 minutes** and calls `POST /api/update-scores` with `Authorization: Bearer <CRON_SECRET>`.
+
+4. Adjust or disable the schedule in the workflow file if you want fewer runs.
 
 ## 6. Vercel deployment
 
