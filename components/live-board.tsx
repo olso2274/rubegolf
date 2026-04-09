@@ -31,6 +31,7 @@ export function LiveBoard({
   const [teams, setTeams] = useState<TeamRow[]>(initialTeams);
   const [players, setPlayers] = useState<PoolPlayerRow[]>(initialPlayers);
   const [loading, setLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [error, setError] = useState<string | null>(configError ?? null);
 
   const lastUpdated = useMemo(() => {
@@ -61,6 +62,36 @@ export function LiveBoard({
       setLoading(false);
     }
   }, [configError]);
+
+  const syncScores = useCallback(async () => {
+    if (configError) return;
+    setSyncLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/public-scores-sync", { method: "POST" });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        retryAfterSeconds?: number;
+      };
+      if (res.status === 429) {
+        setError(
+          j.message ??
+            `Wait ${j.retryAfterSeconds ?? ""}s before syncing again.`
+        );
+        return;
+      }
+      if (!res.ok || !j.ok) {
+        setError(j.message ?? "Score sync failed.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Score sync request failed.");
+    } finally {
+      setSyncLoading(false);
+    }
+  }, [configError, load]);
 
   useEffect(() => {
     if (configError) return;
@@ -117,7 +148,9 @@ export function LiveBoard({
         <LiveIndicator
           lastUpdated={lastUpdated}
           onRefresh={() => void load()}
+          onSyncScores={() => void syncScores()}
           loading={loading}
+          syncLoading={syncLoading}
         />
       </div>
 

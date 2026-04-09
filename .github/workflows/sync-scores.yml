@@ -1,0 +1,29 @@
+# Hits your production /api/update-scores with CRON_SECRET (bypasses Hobby cron limits).
+# Repo → Settings → Secrets → Actions: CRON_SECRET, PRODUCTION_URL
+
+name: Sync PGA scores
+
+on:
+  schedule:
+    # Every 5 minutes UTC (narrow in Actions if you want fewer runs)
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/update-scores
+        env:
+          URL: ${{ secrets.PRODUCTION_URL }}
+          SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$SECRET" ]; then
+            echo "Set PRODUCTION_URL and CRON_SECRET in repository Actions secrets."
+            exit 1
+          fi
+          BASE="${URL%/}"
+          curl -sS -X POST "${BASE}/api/update-scores" \
+            -H "Authorization: Bearer ${SECRET}" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP %{http_code}\n"

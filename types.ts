@@ -41,4 +41,6 @@ export interface UpdateScoresResult {
   playersUpdated?: number;
   teamsUpdated?: number;
   error?: string;
+  /** Seconds until another public sync is allowed (HTTP 429) */
+  retryAfterSeconds?: number;
 }

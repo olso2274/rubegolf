@@ -1,23 +1,30 @@
 # Masters Pool 2026
 
-Live-updating **Masters fantasy pool** leaderboard for six teams and forty-eight players. Built with **Next.js 15** (App Router, React 19, TypeScript), **Tailwind CSS**, **Supabase** (Postgres + Realtime), and **shadcn-style** UI primitives. Deployed on **Vercel** with a **cron job** that refreshes PGA Tour scores.
+Live-updating **Masters fantasy pool** leaderboard for six teams and forty-eight players. Built with **Next.js 15** (App Router, React 19, TypeScript), **Tailwind CSS**, **Supabase** (Postgres + Realtime), and **shadcn-style** UI primitives. Deployed on **Vercel**.
 
-- **Public home (`/`)** — live board, realtime updates, no login.
-- **Admin (`/admin`)** — password-only; seed edits and “Force update scores” (not for public sharing).
+- **Public home (`/`)** — live board, realtime updates, **Sync scores** (PGA fetch + DB write, rate-limited), **Reload board** (re-read Supabase only).
+- **Admin (`/admin`)** — password-only; seed edits and “Force update scores”.
 
 Data source (unofficial, public): PGA Tour `statdata.pgatour.com` JSON (`message.json` → tournament id → `leaderboard-v2mini.json` / `leaderboard-v2.json`).
+
+## Why not Vercel Cron on Hobby?
+
+Vercel **Hobby** plans only allow **daily** cron schedules. This project uses **GitHub Actions** on a `*/5 * * * *` schedule to `POST` your production `/api/update-scores` with `CRON_SECRET` instead (see [`.github/workflows/sync-scores.yml`](./.github/workflows/sync-scores.yml)).
 
 ## Prerequisites
 
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier)
-- A [Vercel](https://vercel.com) account (optional, for deployment + cron)
+- A [Vercel](https://vercel.com) account (hosting)
+- Optional: [GitHub](https://github.com) repo with Actions enabled for automated sync
 
 ## 1. Supabase setup
 
-1. Create a project → **SQL Editor** → run the contents of [`supabase/schema.sql`](./supabase/schema.sql) (creates tables, RLS read policies, seed teams + 48 players).
+1. Create a project → **SQL Editor** → run [`supabase/schema.sql`](./supabase/schema.sql) (tables, RLS, seed teams + 48 players, `app_settings` for public sync cooldown).
 
-2. **Realtime** — In Supabase Dashboard: **Database → Replication**, enable replication for `teams` and `pool_players` (so browser subscriptions receive changes).
+   If you already ran an older schema without `app_settings`, run [`supabase/migration-app-settings.sql`](./supabase/migration-app-settings.sql).
+
+2. **Realtime** — **Database → Replication**: enable `teams` and `pool_players`.
 
 3. **API keys** — **Project Settings → API**:
    - `NEXT_PUBLIC_SUPABASE_URL` = Project URL  
@@ -26,16 +33,18 @@ Data source (unofficial, public): PGA Tour `statdata.pgatour.com` JSON (`message
 
 ## 2. Local environment
 
-Copy [`.env.example`](./.env.example) to `.env.local` and fill values:
+Copy [`.env.example`](./.env.example) to `.env.local`:
 
 | Variable | Purpose |
 |----------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key (RLS: read-only on tables) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only; used by `/api/update-scores` to upsert scores |
-| `CRON_SECRET` | Optional locally; **required in production** if you want secured cron + admin-only manual triggers without opening the route |
-| `ADMIN_PASSWORD` | Password for `/admin` |
-| `ADMIN_SESSION_SECRET` | Long random string; used to sign the admin session cookie |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only; upserts scores |
+| `CRON_SECRET` | Shared secret for `/api/update-scores` (GitHub Actions + optional lockdown) |
+| `PUBLIC_SCORE_SYNC_ENABLED` | Set to `false` to disable the public **Sync scores** button API |
+| `PUBLIC_SYNC_COOLDOWN_SECONDS` | Seconds between public syncs (default `300`) |
+| `ADMIN_PASSWORD` | `/admin` login |
+| `ADMIN_SESSION_SECRET` | Signs admin cookie |
 
 ## 3. Run locally
 
@@ -46,41 +55,47 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Admin: [http://localhost:3000/admin](http://localhost:3000/admin).
 
-**Force refresh scores** from the admin page, or call the API (see below).
+With `CRON_SECRET` unset, **development** allows unauthenticated `POST /api/update-scores` for convenience.
 
-## 4. Update scores API
+## 4. Score update routes
 
-- **GET or POST** `/api/update-scores`
-- **Authorized** if any of:
-  - `Authorization: Bearer <CRON_SECRET>` (Vercel Cron when `CRON_SECRET` is set)
-  - Valid admin session cookie (after logging in at `/admin`)
-  - **Development only**: if `CRON_SECRET` is unset, unauthenticated calls are allowed for convenience
+| Route | Purpose |
+|-------|---------|
+| `POST /api/update-scores` | PGA fetch + Supabase upsert. Requires `Authorization: Bearer <CRON_SECRET>`, **or** admin session cookie, **or** (dev only) no secret if `CRON_SECRET` unset |
+| `POST /api/public-scores-sync` | Same pipeline, **no secret**; **rate-limited** via `app_settings.last_public_sync`. Disable with `PUBLIC_SCORE_SYNC_ENABLED=false` |
 
-Response JSON includes `ok`, `message`, and optional `tournamentId`, `playersUpdated`, `teamsUpdated`.
+Response JSON includes `ok`, `message`, and optional `tournamentId`, `playersUpdated`, `teamsUpdated`, `retryAfterSeconds` (HTTP 429).
 
-## 5. Vercel deployment
+## 5. GitHub Actions (recommended for auto sync)
 
-1. Import the repo → add the same env vars (including `CRON_SECRET`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`).
+1. In the GitHub repo: **Settings → Secrets and variables → Actions**, add:
+   - **`PRODUCTION_URL`** — your live site root, e.g. `https://your-app.vercel.app` (no trailing slash)
+   - **`CRON_SECRET`** — **must match** `CRON_SECRET` in Vercel env
 
-2. **Cron** — [`vercel.json`](./vercel.json) schedules `GET /api/update-scores` every **5 minutes**. In Vercel, set `CRON_SECRET`; Vercel sends `Authorization: Bearer <CRON_SECRET>` to the cron route.
+2. The workflow [`.github/workflows/sync-scores.yml`](./.github/workflows/sync-scores.yml) runs every **5 minutes** and calls `POST /api/update-scores` with the Bearer token.
 
-3. Redeploy after changing env vars.
+3. Adjust or disable the schedule in the workflow file if you want fewer runs.
 
-Tournament window (April 9–12, 2026 UTC) is informational; the cron schedule is `*/5 * * * *` unless you change it in `vercel.json`.
+## 6. Vercel deployment
 
-## 6. Seeding / editing data
+1. Import the repo → set env vars (`CRON_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_*`, etc.).
+
+2. Redeploy after changing env vars.
+
+3. No `vercel.json` cron is required for this setup.
+
+## 7. Seeding / editing data
 
 - **Initial seed** — run `supabase/schema.sql` once.
-- **Edits** — use `/admin` (logged in) to adjust `pool_players` rows (team, pick #, full name). Inserts require a unique `full_name`.
+- **Edits** — `/admin` → adjust `pool_players` (unique `full_name`).
 
-## 7. Project layout
+## 8. Project layout
 
-- `app/page.tsx` — live board (server fetch + client realtime)
-- `app/admin/page.tsx` — admin shell
-- `app/api/update-scores/route.ts` — PGA fetch + Supabase upsert
-- `lib/pga.ts` — tournament id + leaderboard parsing
-- `lib/normalize.ts` — name normalization + optional overrides
-- `components/` — UI (tables, dialog, live indicator)
+- `app/page.tsx` — live board
+- `app/api/update-scores/route.ts` — secured PGA sync
+- `app/api/public-scores-sync/route.ts` — public rate-limited sync
+- `lib/update-scores.ts` — shared sync logic + cooldown helpers
+- `lib/pga.ts` — PGA JSON parsing
 
 ## Disclaimer
 

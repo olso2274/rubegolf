@@ -20,11 +20,16 @@ export function teamBadgeClass(name: string) {
 export function LiveIndicator({
   lastUpdated,
   onRefresh,
+  onSyncScores,
   loading,
+  syncLoading,
 }: {
   lastUpdated: string | null;
   onRefresh: () => void;
+  /** Fetch PGA data and write to Supabase (rate-limited) */
+  onSyncScores?: () => void;
   loading?: boolean;
+  syncLoading?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm text-masters-ink/80">
@@ -37,7 +42,9 @@ export function LiveIndicator({
           <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
         </span>
         <span className="font-medium text-masters-green">Live</span>
-        <span className="text-masters-ink/60">· Updating every 5 min</span>
+        <span className="text-masters-ink/60">
+          · Auto-sync via GitHub Actions (optional)
+        </span>
       </span>
       {lastUpdated && (
         <span className="text-masters-ink/60">
@@ -52,16 +59,31 @@ export function LiveIndicator({
           </time>
         </span>
       )}
+      {onSyncScores && (
+        <Button
+          type="button"
+          variant="gold"
+          size="sm"
+          onClick={onSyncScores}
+          disabled={syncLoading || loading}
+          className="gap-2 font-semibold"
+        >
+          <RefreshCw
+            className={cn("h-4 w-4", syncLoading && "animate-spin")}
+          />
+          Sync scores
+        </Button>
+      )}
       <Button
         type="button"
         variant="outline"
         size="sm"
         onClick={onRefresh}
-        disabled={loading}
+        disabled={loading || syncLoading}
         className="gap-2"
       >
         <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-        Refresh
+        Reload board
       </Button>
     </div>
   );
