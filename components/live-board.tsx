@@ -36,8 +36,15 @@ export function LiveBoard({
 
   const lastUpdated = useMemo(() => {
     if (!players.length) return null;
-    const times = players.map((p) => new Date(p.last_updated).getTime());
-    return new Date(Math.max(...times)).toISOString();
+    const times = players
+      .map((p) => new Date(p.last_updated).getTime())
+      .filter((t) => Number.isFinite(t));
+    if (times.length === 0) return null;
+    try {
+      return new Date(Math.max(...times)).toISOString();
+    } catch {
+      return null;
+    }
   }, [players]);
 
   const load = useCallback(async () => {

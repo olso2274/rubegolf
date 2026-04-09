@@ -8,26 +8,30 @@ const PGA_HEADERS = {
 };
 
 export async function fetchCurrentTournamentId(): Promise<string | null> {
-  const res = await fetch(
-    "https://statdata.pgatour.com/r/current/message.json",
-    { headers: PGA_HEADERS, next: { revalidate: 0 } }
-  );
-  if (!res.ok) return null;
-  const data = (await res.json()) as Record<string, unknown>;
-  const tour = data.currentTournament as Record<string, unknown> | undefined;
-  const tid =
-    (data.tid as string) ??
-    (data.tId as string) ??
-    (data.TournamentId as string) ??
-    (data.tournamentId as string) ??
-    (data.tournament_id as string) ??
-    (data.currentTournamentId as string) ??
-    tour?.tid ??
-    tour?.id ??
-    tour?.tournamentId;
-  if (typeof tid === "string" && tid.length > 0) return tid;
-  if (typeof tid === "number") return String(tid);
-  return null;
+  try {
+    const res = await fetch(
+      "https://statdata.pgatour.com/r/current/message.json",
+      { headers: PGA_HEADERS, next: { revalidate: 0 } }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as Record<string, unknown>;
+    const tour = data.currentTournament as Record<string, unknown> | undefined;
+    const tid =
+      (data.tid as string) ??
+      (data.tId as string) ??
+      (data.TournamentId as string) ??
+      (data.tournamentId as string) ??
+      (data.tournament_id as string) ??
+      (data.currentTournamentId as string) ??
+      tour?.tid ??
+      tour?.id ??
+      tour?.tournamentId;
+    if (typeof tid === "string" && tid.length > 0) return tid;
+    if (typeof tid === "number") return String(tid);
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export function parseRelativeToPar(
@@ -185,10 +189,13 @@ function getPosition(row: Record<string, unknown>): string {
 }
 
 function getStatus(row: Record<string, unknown>): string {
+  if (row.isCut === true) return "cut";
   const st = getString(row, [
     "status",
     "playerState",
     "tournamentStatus",
+    "cutStatus",
+    "roundStatus",
   ]).toString();
   return st || "active";
 }

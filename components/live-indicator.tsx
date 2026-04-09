@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,26 @@ export function LiveIndicator({
   loading?: boolean;
   syncLoading?: boolean;
 }) {
+  /**
+   * Format only after mount so SSR + first client paint match (no locale/timezone mismatch).
+   * Do not use a separate "mounted" flag with toLocaleString in the first render.
+   */
+  const [lastSyncLabel, setLastSyncLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lastUpdated) {
+      setLastSyncLabel(null);
+      return;
+    }
+    setLastSyncLabel(
+      new Date(lastUpdated).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    );
+  }, [lastUpdated]);
+
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm text-masters-ink/80">
       <span className="inline-flex items-center gap-2 rounded-full border border-masters-green/20 bg-white/80 px-3 py-1 shadow-sm">
@@ -46,17 +67,10 @@ export function LiveIndicator({
           · Auto-sync via GitHub Actions (optional)
         </span>
       </span>
-      {lastUpdated && (
+      {lastUpdated && lastSyncLabel && (
         <span className="text-masters-ink/60">
           Last sync:{" "}
-          <time dateTime={lastUpdated}>
-            {new Date(lastUpdated).toLocaleString(undefined, {
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </time>
+          <time dateTime={lastUpdated}>{lastSyncLabel}</time>
         </span>
       )}
       {onSyncScores && (

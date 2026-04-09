@@ -6,17 +6,38 @@ import {
   scoreDisplayFromTotal,
 } from "@/lib/pga";
 import { buildLeaderboardMap, findLeaderboardRow } from "@/lib/matching";
-import type { UpdateScoresResult } from "@/types";
+import type { LeaderboardPlayer, UpdateScoresResult } from "@/types";
 
 /** Count best ball scores per team (Masters-style: 4 lowest of 8). */
 const BEST_BALL_COUNT = 4;
 
+/** Pool status stored on `pool_players.status` after each PGA sync. */
+function normalizePoolStatus(lb: LeaderboardPlayer | undefined): string {
+  if (!lb) return "pending";
+  if (lb.isActive) return "active";
+  const st = (lb.status || "").toLowerCase();
+  if (st.includes("cut") || st === "mc") return "cut";
+  if (["wd", "dq", "dns"].includes(st)) return st;
+  return "inactive";
+}
+
 /**
  * Value used when ordering players to pick the "best" scores for the team total.
- * Lower is better in stroke play. Unmatched players sort last.
+ * Lower is better. Pending, CUT/MC, WD/DQ, and inactive players do not count.
  */
 function totalForBestBallRanking(totalToPar: number, status: string): number {
   if (status === "pending") return Number.POSITIVE_INFINITY;
+  const s = status.toLowerCase();
+  if (
+    s === "cut" ||
+    s === "mc" ||
+    s === "wd" ||
+    s === "dq" ||
+    s === "dns" ||
+    s === "inactive"
+  ) {
+    return Number.POSITIVE_INFINITY;
+  }
   return totalToPar;
 }
 
@@ -92,11 +113,7 @@ export async function runScoreUpdate(): Promise<UpdateScoresResult> {
     const today = lb?.today ?? "—";
     const thru = lb?.thru ?? "—";
     const position = lb?.position ?? "—";
-    const status = lb
-      ? lb.isActive
-        ? "active"
-        : lb.status || "inactive"
-      : "pending";
+    const status = normalizePoolStatus(lb);
 
     const { error: upErr } = await supabase
       .from("pool_players")

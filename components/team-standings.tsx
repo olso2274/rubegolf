@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cnScore } from "@/lib/score-style";
+import { cnScore, scoreCellBgClass } from "@/lib/score-style";
 import { teamBadgeClass } from "@/components/live-indicator";
 import type { PoolPlayerRow, TeamRow } from "@/types";
 import { cn } from "@/lib/utils";
@@ -61,6 +61,30 @@ export function TeamStandings({
     return list;
   }, [teams, sortKey]);
 
+  /** Summary order: always by score (lowest first), with tie labels T2, T3, … */
+  const summaryRows = useMemo(() => {
+    const list = [...teams].sort((a, b) => a.total_to_par - b.total_to_par);
+    const rows: { rankLabel: string; team: TeamRow; isLeader: boolean }[] = [];
+    let i = 0;
+    while (i < list.length) {
+      const score = list[i].total_to_par;
+      let j = i + 1;
+      while (j < list.length && list[j].total_to_par === score) j++;
+      const rankStart = i + 1;
+      const tied = j - i > 1;
+      const rankLabel = tied ? `T${rankStart}` : String(rankStart);
+      for (let k = i; k < j; k++) {
+        rows.push({
+          rankLabel,
+          team: list[k],
+          isLeader: i === 0,
+        });
+      }
+      i = j;
+    }
+    return rows;
+  }, [teams]);
+
   const toggleSort = (key: SortKey) => setSortKey(key);
 
   const leaderName = sorted[0]?.name;
@@ -74,11 +98,90 @@ export function TeamStandings({
           </CardTitle>
           <p className="text-sm text-masters-ink/60">
             Team total = sum of each team&apos;s <strong>4 best</strong> (lowest)
-            scores of 8. Use the arrow to expand rosters. Click total or → for full
-            Today / Thru / Pos. Lowest team total wins.
+            scores of 8 (CUT players don&apos;t count).{" "}
+            <strong>Today</strong> and <strong>Thru</strong> sync from the PGA Tour
+            feed when scores update. Expand a team for the full scorecard; click the
+            team total or → for a larger view.
           </p>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="border-b border-amber-200/60 bg-gradient-to-br from-amber-50/50 via-white to-emerald-50/30 px-4 py-5 md:px-6">
+            <h3 className="mb-3 font-display text-lg font-semibold tracking-tight text-masters-green md:text-xl">
+              Team summary
+            </h3>
+            <div className="overflow-x-auto rounded-lg border border-masters-green/15 bg-white/90 shadow-inner">
+              <table className="w-full min-w-[320px] text-sm">
+                <thead>
+                  <tr className="border-b border-masters-green/20 bg-masters-green text-left text-white">
+                    <th className="px-3 py-2.5 font-semibold md:px-4">Rank</th>
+                    <th className="px-3 py-2.5 font-semibold md:px-4">Team</th>
+                    <th className="px-3 py-2.5 text-right font-semibold md:px-4">
+                      Score
+                    </th>
+                    <th className="hidden px-3 py-2.5 text-right font-semibold sm:table-cell md:px-4">
+                      Payouts
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summaryRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-6 text-center text-masters-ink/50"
+                      >
+                        No team data yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    summaryRows.map(({ rankLabel, team: t, isLeader }) => (
+                      <tr
+                        key={t.name}
+                        className={cn(
+                          "border-b border-masters-green/10 transition-colors",
+                          isLeader && "bg-emerald-50/90"
+                        )}
+                      >
+                        <td className="px-3 py-2.5 font-semibold text-masters-green tabular-nums md:px-4">
+                          {rankLabel}
+                        </td>
+                        <td className="px-3 py-2.5 md:px-4">
+                          <Badge
+                            variant="gold"
+                            className={cn(
+                              "text-white shadow-sm",
+                              teamBadgeClass(t.name)
+                            )}
+                          >
+                            {t.name}
+                          </Badge>
+                        </td>
+                        <td
+                          className={cn(
+                            "px-3 py-2.5 text-right text-lg font-bold tabular-nums md:px-4",
+                            cnScore(t.score_display)
+                          )}
+                        >
+                          {t.score_display}
+                        </td>
+                        <td className="hidden px-3 py-2.5 text-right text-masters-ink/40 sm:table-cell md:px-4">
+                          —
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-xs text-masters-ink/50">
+              Payouts can be filled in manually after the tournament.
+            </p>
+          </div>
+
+          <div className="px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-wide text-masters-ink/50 md:px-6">
+            Rosters & detail
+          </div>
+
           <div className="hidden md:block">
             <Table>
               <TableHeader>
@@ -99,7 +202,7 @@ export function TeamStandings({
                     className="cursor-pointer text-right"
                     onClick={() => toggleSort("total")}
                   >
-                    Total to par
+                    Score
                   </TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -154,7 +257,13 @@ export function TeamStandings({
                             >
                               {t.name}
                             </Badge>
-                            {expanded && <TeamRosterInline rows={roster} />}
+                            {expanded && (
+                              <TeamScorecardTable
+                                rows={roster}
+                                teamName={t.name}
+                                teamScoreDisplay={t.score_display}
+                              />
+                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -266,7 +375,11 @@ export function TeamStandings({
                         </button>
                       </div>
                       {expanded && (
-                        <TeamRosterInline rows={roster} className="mt-3 w-full" />
+                        <TeamScorecardTable
+                          rows={roster}
+                          teamName={t.name}
+                          teamScoreDisplay={t.score_display}
+                        />
                       )}
                     </div>
                   </div>
@@ -285,7 +398,13 @@ export function TeamStandings({
             </DialogTitle>
           </DialogHeader>
           {openTeam && (
-            <PlayerTable rows={playersByTeam[openTeam] ?? []} />
+            <TeamScorecardTable
+              rows={playersByTeam[openTeam] ?? []}
+              teamScoreDisplay={
+                teams.find((x) => x.name === openTeam)?.score_display ?? "E"
+              }
+              hideTeamBanner
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -293,110 +412,115 @@ export function TeamStandings({
   );
 }
 
+function dashDisplay(s: string): string {
+  const t = s.trim();
+  if (t === "—" || t === "") return "-";
+  return s;
+}
+
+function sortPoolByName(rows: PoolPlayerRow[]): PoolPlayerRow[] {
+  return [...rows].sort((a, b) => a.full_name.localeCompare(b.full_name));
+}
+
 function playerTotalDisplay(p: PoolPlayerRow): string {
+  const st = (p.status || "").toLowerCase();
+  if (st === "pending") return "—";
+  if (st === "cut" || st === "mc") return "CUT";
   if (p.total_to_par === 0) return "E";
   if (p.total_to_par > 0) return `+${p.total_to_par}`;
   return String(p.total_to_par);
 }
 
-function TeamRosterInline({
+function TeamScorecardTable({
   rows,
-  className,
+  teamName,
+  teamScoreDisplay,
+  hideTeamBanner = false,
 }: {
   rows: PoolPlayerRow[];
-  className?: string;
+  /** Shown in the light-green banner above the column headers (omit when `hideTeamBanner`). */
+  teamName?: string;
+  teamScoreDisplay: string;
+  hideTeamBanner?: boolean;
 }) {
-  const sorted = [...rows].sort((a, b) =>
-    a.full_name.localeCompare(b.full_name)
-  );
+  const sorted = sortPoolByName(rows);
   if (sorted.length === 0) {
     return (
-      <p className={cn("mt-2 text-xs text-masters-ink/50", className)}>
+      <p className="mt-2 text-xs text-masters-ink/50">
         No players in pool yet.
       </p>
     );
   }
   return (
-    <ul
-      className={cn(
-        "mt-2 space-y-1 border-t border-masters-green/10 pt-2 text-xs sm:text-sm",
-        className
-      )}
-    >
-      {sorted.map((p) => {
-        const td = playerTotalDisplay(p);
-        return (
-          <li
-            key={p.id}
-            className="flex items-baseline justify-between gap-2 text-masters-ink/90"
-          >
-            <span className="min-w-0 break-words font-medium leading-snug">
-              {p.full_name}
-            </span>
-            <span
-              className={cn(
-                "shrink-0 tabular-nums text-xs font-semibold sm:text-sm",
-                cnScore(td)
-              )}
-            >
-              {td}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function PlayerTable({ rows }: { rows: PoolPlayerRow[] }) {
-  const sorted = [...rows].sort((a, b) =>
-    a.full_name.localeCompare(b.full_name)
-  );
-  return (
-    <div className="overflow-x-auto rounded-lg border border-masters-green/15">
-      <table className="w-full text-sm">
-        <thead className="bg-masters-green text-white">
-          <tr>
-            <th className="px-3 py-2 text-left font-semibold">Player</th>
-            <th className="px-2 py-2 text-left font-semibold">Today</th>
-            <th className="px-2 py-2 text-left font-semibold">Thru</th>
-            <th className="px-2 py-2 text-right font-semibold">Total</th>
-            <th className="px-2 py-2 text-right font-semibold">Pos</th>
+    <div className="mt-3 w-full overflow-x-auto rounded-md border border-masters-green/25 bg-white shadow-sm">
+      <table className="w-full min-w-[300px] text-sm">
+        <thead>
+          {!hideTeamBanner && teamName && (
+            <tr className="bg-emerald-100">
+              <th
+                colSpan={4}
+                className="px-3 py-2 text-left font-bold uppercase tracking-wide text-masters-green"
+              >
+                {teamName}
+              </th>
+            </tr>
+          )}
+          <tr className="border-b border-masters-green/20 bg-masters-green text-left text-white">
+            <th className="px-2 py-2 pl-3 font-semibold">Player</th>
+            <th className="px-2 py-2 text-center font-semibold">Today</th>
+            <th className="px-2 py-2 text-center font-semibold">Thru</th>
+            <th className="px-2 py-2 pr-3 text-right font-semibold">Total</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((p) => {
-            const active = p.status === "active";
             const totalDisp = playerTotalDisplay(p);
+            const todayDisp = dashDisplay(p.today);
+            const thruDisp = dashDisplay(p.thru);
             return (
-              <tr
-                key={p.id}
-                className={cn(
-                  "border-b border-masters-green/10 last:border-0",
-                  active && "bg-emerald-50/80"
-                )}
-              >
-                <td className="px-3 py-2 font-medium text-masters-ink">
+              <tr key={p.id} className="border-b border-masters-green/10">
+                <td className="px-2 py-1.5 pl-3 font-medium text-masters-ink">
                   {p.full_name}
                 </td>
-                <td className={cn("px-2 py-2", cnScore(p.today))}>
-                  {p.today}
-                </td>
-                <td className="px-2 py-2 text-masters-ink/80">{p.thru}</td>
                 <td
                   className={cn(
-                    "px-2 py-2 text-right tabular-nums",
-                    cnScore(totalDisp)
+                    "px-2 py-1.5 text-center tabular-nums",
+                    scoreCellBgClass(todayDisp)
+                  )}
+                >
+                  {todayDisp}
+                </td>
+                <td className="px-2 py-1.5 text-center tabular-nums text-masters-ink/80">
+                  {thruDisp}
+                </td>
+                <td
+                  className={cn(
+                    "px-2 py-1.5 pr-3 text-right tabular-nums font-medium",
+                    scoreCellBgClass(totalDisp)
                   )}
                 >
                   {totalDisp}
                 </td>
-                <td className="px-2 py-2 text-right text-masters-ink/80">
-                  {p.position}
-                </td>
               </tr>
             );
           })}
+          <tr className="border-t-2 border-masters-green/30">
+            <td
+              colSpan={3}
+              className="px-2 py-2 pl-3 text-right text-xs font-semibold uppercase tracking-wide text-masters-ink/70"
+            >
+              Best 4 of 8 (total)
+            </td>
+            <td
+              className={cn(
+                "px-2 py-2 pr-3 text-right text-lg font-bold tabular-nums md:text-xl",
+                "bg-yellow-300 text-masters-ink shadow-inner",
+                cnScore(teamScoreDisplay)
+              )}
+            >
+              {teamScoreDisplay}
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>

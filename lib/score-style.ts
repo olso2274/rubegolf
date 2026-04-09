@@ -19,3 +19,27 @@ export function scoreTextClass(value: string | number): string {
 export function cnScore(value: string | number, className?: string) {
   return cn(scoreTextClass(value), className);
 }
+
+/**
+ * Spreadsheet-style cell background for Today / Total columns (stroke play).
+ * CUT / status words get neutral fill; over par red-tint, under par blue-tint.
+ */
+export function scoreCellBgClass(value: string): string {
+  const raw = String(value).trim();
+  const s = raw.toUpperCase();
+  if (s === "—" || s === "-" || s === "–" || raw === "")
+    return "bg-white text-zinc-800";
+  if (s === "CUT" || s === "MC" || s === "WD" || s === "DQ" || s === "DNS")
+    return "bg-zinc-100 text-zinc-900 font-semibold";
+  if (s === "E" || s === "EVEN" || s === "0" || s === "+0")
+    return "bg-white text-zinc-800";
+  if (s.startsWith("-")) return "bg-sky-100 text-sky-900 font-semibold";
+  if (s.startsWith("+")) return "bg-red-100 text-red-900 font-semibold";
+  const n = parseInt(s.replace(/[^\d+-]/g, ""), 10);
+  if (!Number.isNaN(n)) {
+    if (n < 0) return "bg-sky-100 text-sky-900 font-semibold";
+    if (n > 0) return "bg-red-100 text-red-900 font-semibold";
+    return "bg-white text-zinc-800";
+  }
+  return "bg-white text-zinc-800";
+}

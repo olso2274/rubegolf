@@ -106,7 +106,7 @@ In [Supabase Dashboard](https://supabase.com/dashboard) → your project → **P
 
 - **Initial seed** — run `supabase/schema.sql` once (creates tables + `INSERT` rosters).
 - **Populate / reset rosters only** — run [`supabase/seed-rosters.sql`](./supabase/seed-rosters.sql) in the SQL Editor (deletes `pool_players` then inserts 48 names).
-- **Dropped `pick_number` column** — if your DB was created with an older schema, run [`supabase/migration-drop-pick-number.sql`](./supabase/migration-drop-pick-number.sql) once, then redeploy.
+- **Optional** — if `pool_players` still has a `pick_number` column from an older deploy, run [`supabase/migration-drop-pick-number.sql`](./supabase/migration-drop-pick-number.sql) once.
 - **Edits** — `/admin` → adjust `pool_players` (unique `full_name`).
 
 ## 8. Project layout

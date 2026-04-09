@@ -29,6 +29,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${dmSans.variable} ${playfair.variable} min-h-screen font-sans antialiased`}
+        suppressHydrationWarning
       >
         <div className="masters-bg min-h-screen">
           <header className="border-b border-masters-green/20 bg-gradient-to-r from-masters-green via-emerald-900 to-masters-green shadow-md">

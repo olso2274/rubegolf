@@ -92,6 +92,7 @@ export function AdminDashboard({ players }: { players: PoolPlayerRow[] }) {
                 <TableHead>Team</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead className="text-right">Today</TableHead>
+                <TableHead className="text-right">Thru</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
             </TableHeader>
@@ -101,6 +102,7 @@ export function AdminDashboard({ players }: { players: PoolPlayerRow[] }) {
                   <TableCell>{p.team_name}</TableCell>
                   <TableCell className="font-medium">{p.full_name}</TableCell>
                   <TableCell className="text-right">{p.today}</TableCell>
+                  <TableCell className="text-right">{p.thru}</TableCell>
                   <TableCell className="text-right">{p.total_to_par}</TableCell>
                 </TableRow>
               ))}
