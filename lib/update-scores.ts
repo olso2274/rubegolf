@@ -1,10 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceSupabase } from "@/lib/supabase";
-import {
-  fetchCurrentTournamentId,
-  fetchLeaderboard,
-  scoreDisplayFromTotal,
-} from "@/lib/pga";
+import { resolveLeaderboardForTournament, scoreDisplayFromTotal } from "@/lib/pga";
 import { buildLeaderboardMap, findLeaderboardRow } from "@/lib/matching";
 import type { LeaderboardPlayer, UpdateScoresResult } from "@/types";
 
@@ -81,25 +77,15 @@ async function runScoreUpdateInner(): Promise<UpdateScoresResult> {
     };
   }
 
-  const tid = await fetchCurrentTournamentId();
-  if (!tid) {
+  const resolved = await resolveLeaderboardForTournament();
+  if (!resolved) {
     return {
       ok: false,
-      message: "No active tournament id from PGA (tournament may not be live)",
+      message:
+        "No active tournament id from PGA (tournament may not be live) — showing last known values when available.",
     };
   }
-
-  let leaderboard;
-  try {
-    leaderboard = await fetchLeaderboard(tid);
-  } catch (e) {
-    return {
-      ok: false,
-      message: "Leaderboard fetch failed — showing last synced data",
-      tournamentId: tid,
-      error: e instanceof Error ? e.message : String(e),
-    };
-  }
+  const { tid, leaderboard } = resolved;
 
   const map = buildLeaderboardMap(leaderboard);
 

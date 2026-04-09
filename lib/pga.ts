@@ -3,19 +3,34 @@ import type { LeaderboardPlayer } from "@/types";
 
 const PGA_HEADERS = {
   "User-Agent":
-    "Mozilla/5.0 (compatible; MastersPool/1.0; +https://vercel.com)",
-  Accept: "application/json",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  Referer: "https://www.pgatour.com/",
+  Origin: "https://www.pgatour.com",
 };
 
-export async function fetchCurrentTournamentId(): Promise<string | null> {
-  /** When `message.json` has no Masters / wrong “current” event (common Masters week), set in Vercel. */
-  const override = process.env.PGA_TOURNAMENT_ID?.trim();
-  if (override) return override;
+/** Masters statdata id fallbacks when `message.json` has no tid (bracket access avoids bundler dropping env). */
+/** Masters statdata ids (avoid short numeric-only ids — wrong event). */
+const MASTERS_TOURNAMENT_ID_CANDIDATES = ["R2026014", "2026014"] as const;
 
+/**
+ * Optional override from Vercel: `PGA_TOURNAMENT_ID` or `NEXT_PUBLIC_PGA_TOURNAMENT_ID`
+ * (public name is OK — it is only a tournament id, not a secret).
+ */
+export function getPgaTournamentEnv(): string | null {
+  const a = process.env["PGA_TOURNAMENT_ID"]?.trim();
+  if (a) return a;
+  const b = process.env["NEXT_PUBLIC_PGA_TOURNAMENT_ID"]?.trim();
+  if (b) return b;
+  return null;
+}
+
+export async function fetchMessageJsonTournamentId(): Promise<string | null> {
   try {
     const res = await fetch(
       "https://statdata.pgatour.com/r/current/message.json",
-      { headers: PGA_HEADERS, next: { revalidate: 0 } }
+      { headers: PGA_HEADERS, cache: "no-store" }
     );
     if (!res.ok) return null;
     const data = (await res.json()) as Record<string, unknown>;
@@ -36,6 +51,47 @@ export async function fetchCurrentTournamentId(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+export async function fetchCurrentTournamentId(): Promise<string | null> {
+  const override = getPgaTournamentEnv();
+  if (override) return override;
+  return await fetchMessageJsonTournamentId();
+}
+
+/**
+ * Resolves a tournament id and leaderboard in one pass: env → message.json → Masters fallbacks,
+ * first candidate that returns a non-empty leaderboard wins.
+ */
+export async function resolveLeaderboardForTournament(): Promise<{
+  tid: string;
+  leaderboard: LeaderboardPlayer[];
+} | null> {
+  const messageTid = await fetchMessageJsonTournamentId();
+  const raw = [
+    getPgaTournamentEnv(),
+    messageTid,
+    ...MASTERS_TOURNAMENT_ID_CANDIDATES,
+  ].filter((x): x is string => Boolean(x && String(x).trim()));
+  const seen = new Set<string>();
+  const ordered = raw.filter((id) => {
+    const k = id.trim();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  for (const tid of ordered) {
+    try {
+      const leaderboard = await fetchLeaderboard(tid);
+      if (leaderboard.length > 0) {
+        return { tid, leaderboard };
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
 }
 
 export function parseRelativeToPar(
@@ -81,6 +137,7 @@ function getString(obj: Record<string, unknown>, keys: string[]): string {
 function buildFullName(row: Record<string, unknown>): string {
   const direct = getString(row, [
     "playerName",
+    "player_name",
     "displayName",
     "name",
     "fullName",
@@ -97,20 +154,56 @@ function buildFullName(row: Record<string, unknown>): string {
 }
 
 function extractRows(data: unknown): Record<string, unknown>[] {
-  if (!data || typeof data !== "object") return [];
+  if (!data) return [];
+  if (Array.isArray(data)) {
+    if (data.length === 0) return [];
+    const first = data[0];
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      return data as Record<string, unknown>[];
+    }
+    return [];
+  }
+  if (typeof data !== "object") return [];
   const d = data as Record<string, unknown>;
-  const candidates = [
+
+  const tryLists: unknown[] = [
     d.leaderboardRows,
     d.leaderboardrows,
     d.players,
-    (d.leaderboard as Record<string, unknown> | undefined)?.players,
-    (d.leaderboard as Record<string, unknown> | undefined)?.leaderboardRows,
     d.rows,
+    Array.isArray(d.leaderboard) ? d.leaderboard : undefined,
   ];
-  for (const c of candidates) {
-    if (Array.isArray(c)) return c as Record<string, unknown>[];
+  const lb = d.leaderboard;
+  if (lb && typeof lb === "object" && !Array.isArray(lb)) {
+    const L = lb as Record<string, unknown>;
+    tryLists.push(L.players, L.leaderboardRows);
   }
-  if (Array.isArray(d)) return d as Record<string, unknown>[];
+  for (const list of tryLists) {
+    if (Array.isArray(list) && list.length > 0) {
+      const first = list[0];
+      if (first && typeof first === "object" && !Array.isArray(first)) {
+        return list as Record<string, unknown>[];
+      }
+    }
+  }
+
+  if (Array.isArray(d.standings)) {
+    const out: Record<string, unknown>[] = [];
+    for (const s of d.standings) {
+      if (s && typeof s === "object") {
+        const p = (s as Record<string, unknown>).players;
+        if (Array.isArray(p) && p.length > 0) {
+          out.push(...(p as Record<string, unknown>[]));
+        }
+      }
+    }
+    if (out.length > 0) return out;
+  }
+
+  if (d.data && typeof d.data === "object") {
+    return extractRows(d.data);
+  }
+
   return [];
 }
 
@@ -169,9 +262,12 @@ function getTotalToPar(row: Record<string, unknown>): number | null {
     "total_par",
     "totalToPar",
     "total_to_par",
+    "to_par",
+    "toPar",
     "total",
     "score",
     "relativeToPar",
+    "relative_to_par",
   ];
   for (const k of keys) {
     const p = parseRelativeToPar(row[k] as string | number);
@@ -215,20 +311,23 @@ function isActive(row: Record<string, unknown>): boolean {
 export async function fetchLeaderboard(
   tournamentId: string
 ): Promise<LeaderboardPlayer[]> {
+  const tid = encodeURIComponent(tournamentId.trim());
   const urls = [
-    `https://statdata.pgatour.com/r/${tournamentId}/leaderboard-v2mini.json`,
-    `https://statdata.pgatour.com/r/${tournamentId}/leaderboard-v2.json`,
+    `https://statdata.pgatour.com/r/${tid}/leaderboard-v2mini.json`,
+    `https://statdata.pgatour.com/r/${tid}/leaderboard-v2.json`,
+    `https://statdata.pgatour.com/r/${tid}/leaderboard.json`,
   ];
   let lastErr: Error | null = null;
   for (const url of urls) {
     try {
       const res = await fetch(url, {
         headers: PGA_HEADERS,
-        next: { revalidate: 0 },
+        cache: "no-store",
       });
       if (!res.ok) continue;
       const j = await res.json();
-      return parseLeaderboardJson(j);
+      const parsed = parseLeaderboardJson(j);
+      if (parsed.length > 0) return parsed;
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
     }
