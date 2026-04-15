@@ -392,13 +392,17 @@ export async function fetchLeaderboardFromWebsite(
           ?.pageProps as Record<string, unknown> | undefined;
         if (!props) continue;
 
+        const propsLeaderboardId = props.leaderboardId;
+        const pageTournamentId = (
+          (props.pageContext as Record<string, unknown> | undefined)
+            ?.tournaments as Array<Record<string, unknown>> | undefined
+        )?.[0]?.leaderboardId;
         const tid =
-          (props.leaderboardId as string | undefined) ??
-          (
-            (props.pageContext as Record<string, unknown> | undefined)
-              ?.tournaments as Array<Record<string, unknown>> | undefined
-          )?.[0]?.leaderboardId ??
-          requestedTid;
+          typeof propsLeaderboardId === "string" && propsLeaderboardId.trim()
+            ? propsLeaderboardId
+            : typeof pageTournamentId === "string" && pageTournamentId.trim()
+              ? pageTournamentId
+              : requestedTid;
 
         const queries =
           (
