@@ -59,27 +59,31 @@ export async function fetchCurrentTournamentId(): Promise<string | null> {
   return await fetchMessageJsonTournamentId();
 }
 
-/**
- * Resolves a tournament id and leaderboard in one pass: env → message.json → Masters fallbacks,
- * first candidate that returns a non-empty leaderboard wins.
- */
-export async function resolveLeaderboardForTournament(): Promise<{
-  tid: string;
-  leaderboard: LeaderboardPlayer[];
-} | null> {
-  const messageTid = await fetchMessageJsonTournamentId();
-  const raw = [
-    getPgaTournamentEnv(),
-    messageTid,
-    ...MASTERS_TOURNAMENT_ID_CANDIDATES,
-  ].filter((x): x is string => Boolean(x && String(x).trim()));
+function getPreferredTournamentIds(): string[] {
+  const raw = [getPgaTournamentEnv(), ...MASTERS_TOURNAMENT_ID_CANDIDATES].filter(
+    (x): x is string => Boolean(x && String(x).trim())
+  );
   const seen = new Set<string>();
-  const ordered = raw.filter((id) => {
+  return raw.filter((id) => {
     const k = id.trim();
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
   });
+}
+
+/**
+ * Resolves the leaderboard for this pool's tournament only.
+ *
+ * Important: this app is pinned to the 2026 Masters. Do not follow PGA's
+ * "current tournament" pointers here, or the next event on the schedule can
+ * overwrite the finished Masters results in Supabase.
+ */
+export async function resolveLeaderboardForTournament(): Promise<{
+  tid: string;
+  leaderboard: LeaderboardPlayer[];
+} | null> {
+  const ordered = getPreferredTournamentIds();
 
   for (const tid of ordered) {
     try {
@@ -91,7 +95,7 @@ export async function resolveLeaderboardForTournament(): Promise<{
       /* try next */
     }
   }
-  const website = await fetchLeaderboardFromWebsite();
+  const website = await fetchLeaderboardFromWebsite(ordered);
   if (website && website.leaderboard.length > 0) {
     return website;
   }
@@ -352,76 +356,94 @@ function extractNextDataJson(html: string): Record<string, unknown> | null {
   }
 }
 
+function getTournamentWebsiteUrls(tournamentId: string): string[] {
+  const tid = tournamentId.trim();
+  const slugBase = "https://www.pgatour.com/tournaments/2026/masters-tournament";
+  return [
+    `${slugBase}/${encodeURIComponent(tid)}`,
+    `${slugBase}/${encodeURIComponent(tid)}/leaderboard`,
+  ];
+}
+
 /**
  * Fallback for when `statdata.pgatour.com` is blocked or flaky.
- * The public PGA leaderboard page ships live leaderboard rows in `__NEXT_DATA__`.
+ * Reads the Masters tournament page directly so future PGA events cannot leak in.
  */
-export async function fetchLeaderboardFromWebsite(): Promise<{
+export async function fetchLeaderboardFromWebsite(
+  tournamentIds: string[]
+): Promise<{
   tid: string;
   leaderboard: LeaderboardPlayer[];
 } | null> {
-  try {
-    const res = await fetch("https://www.pgatour.com/leaderboard", {
-      headers: PGA_HEADERS,
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const nextData = extractNextDataJson(html);
-    if (!nextData) return null;
+  for (const requestedTid of tournamentIds) {
+    const urls = getTournamentWebsiteUrls(requestedTid);
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, {
+          headers: PGA_HEADERS,
+          cache: "no-store",
+        });
+        if (!res.ok) continue;
+        const html = await res.text();
+        const nextData = extractNextDataJson(html);
+        if (!nextData) continue;
 
-    const props = (nextData.props as Record<string, unknown> | undefined)
-      ?.pageProps as Record<string, unknown> | undefined;
-    if (!props) return null;
+        const props = (nextData.props as Record<string, unknown> | undefined)
+          ?.pageProps as Record<string, unknown> | undefined;
+        if (!props) continue;
 
-    const tid =
-      (props.leaderboardId as string | undefined) ??
-      (
-        (props.pageContext as Record<string, unknown> | undefined)
-          ?.tournaments as Array<Record<string, unknown>> | undefined
-      )?.[0]?.leaderboardId;
-    if (!tid || typeof tid !== "string") return null;
+        const tid =
+          (props.leaderboardId as string | undefined) ??
+          (
+            (props.pageContext as Record<string, unknown> | undefined)
+              ?.tournaments as Array<Record<string, unknown>> | undefined
+          )?.[0]?.leaderboardId ??
+          requestedTid;
 
-    const queries =
-      (
-        (props.dehydratedState as Record<string, unknown> | undefined)
-          ?.queries as Array<Record<string, unknown>> | undefined
-      ) ?? [];
+        const queries =
+          (
+            (props.dehydratedState as Record<string, unknown> | undefined)
+              ?.queries as Array<Record<string, unknown>> | undefined
+          ) ?? [];
 
-    const leaderboardQuery = queries.find((q) => {
-      const key = q.queryKey;
-      return Array.isArray(key) && key[0] === "leaderboard";
-    });
-    if (!leaderboardQuery) return null;
+        const leaderboardQuery = queries.find((q) => {
+          const key = q.queryKey;
+          return Array.isArray(key) && key[0] === "leaderboard";
+        });
+        if (!leaderboardQuery) continue;
 
-    const players =
-      (
-        ((leaderboardQuery.state as Record<string, unknown> | undefined)
-          ?.data as Record<string, unknown> | undefined)
-          ?.players as Array<Record<string, unknown>> | undefined
-      ) ?? [];
-    if (players.length === 0) return null;
+        const players =
+          (
+            ((leaderboardQuery.state as Record<string, unknown> | undefined)
+              ?.data as Record<string, unknown> | undefined)
+              ?.players as Array<Record<string, unknown>> | undefined
+          ) ?? [];
+        if (players.length === 0) continue;
 
-    const syntheticRows = players.map((row) => {
-      const player = row.player as Record<string, unknown> | undefined;
-      const scoring = row.scoringData as Record<string, unknown> | undefined;
-      return {
-        player,
-        playerState: scoring?.playerState,
-        roundStatus: scoring?.roundStatus,
-        position: scoring?.position,
-        score: scoring?.total,
-        today: scoring?.score,
-        thru: scoring?.thru,
-      } satisfies Record<string, unknown>;
-    });
+        const syntheticRows = players.map((row) => {
+          const player = row.player as Record<string, unknown> | undefined;
+          const scoring = row.scoringData as Record<string, unknown> | undefined;
+          return {
+            player,
+            playerState: scoring?.playerState,
+            roundStatus: scoring?.roundStatus,
+            position: scoring?.position,
+            score: scoring?.total,
+            today: scoring?.score,
+            thru: scoring?.thru,
+          } satisfies Record<string, unknown>;
+        });
 
-    const leaderboard = parseLeaderboardJson(syntheticRows);
-    if (leaderboard.length === 0) return null;
-    return { tid, leaderboard };
-  } catch {
-    return null;
+        const leaderboard = parseLeaderboardJson(syntheticRows);
+        if (leaderboard.length > 0) {
+          return { tid, leaderboard };
+        }
+      } catch {
+        /* try next Masters page */
+      }
+    }
   }
+  return null;
 }
 
 export function parseLeaderboardJson(data: unknown): LeaderboardPlayer[] {

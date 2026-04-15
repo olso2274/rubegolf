@@ -35,6 +35,36 @@ const TEAM_ORDER = [
   "Bho",
 ];
 
+const TOP_PAYOUTS = [
+  {
+    label: "Low Team Winner",
+    team: "GG",
+    amount: "$155",
+    detail: "Team score -36",
+  },
+  {
+    label: "2nd Low Team",
+    team: "Chuck",
+    amount: "$50",
+    detail: "Team score -30",
+  },
+  {
+    label: "Best Golfer Team",
+    team: "Chuck",
+    amount: "$60",
+    detail: "Rory score -12",
+  },
+];
+
+const LOW_ROUND_PAYOUTS = [
+  { team: "GG", detail: "$5 Burns Thursday" },
+  { team: "Chuck", detail: "+$5 Rory Thursday, +$10 Rory Friday" },
+  { team: "Skip", detail: "$5 Scheffler Saturday" },
+  { team: "Bho", detail: "$5 Young Saturday" },
+  { team: "Emil", detail: "$5 Hatton Sunday" },
+  { team: "Morc", detail: "$5 Woodland Sunday" },
+];
+
 export function TeamStandings({
   teams,
   playersByTeam,
@@ -126,16 +156,13 @@ export function TeamStandings({
                     <th className="px-3 py-2.5 text-right font-semibold md:px-4">
                       Score
                     </th>
-                    <th className="hidden px-3 py-2.5 text-right font-semibold sm:table-cell md:px-4">
-                      Payouts
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {summaryRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={3}
                         className="px-4 py-6 text-center text-masters-ink/50"
                       >
                         No team data yet.
@@ -172,18 +199,70 @@ export function TeamStandings({
                         >
                           {t.score_display}
                         </td>
-                        <td className="hidden px-3 py-2.5 text-right text-masters-ink/40 sm:table-cell md:px-4">
-                          —
-                        </td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-xs text-masters-ink/50">
-              Payouts can be filled in manually after the tournament.
-            </p>
+          </div>
+
+          <div className="border-b border-amber-200/50 bg-gradient-to-br from-white via-amber-50/40 to-emerald-50/20 px-4 py-5 md:px-6">
+            <h3 className="mb-3 font-display text-lg font-semibold tracking-tight text-masters-green md:text-xl">
+              Payouts
+            </h3>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border border-amber-200/70 bg-amber-50/80 p-4">
+                <h4 className="font-display text-base font-semibold text-masters-green">
+                  Top payouts
+                </h4>
+                <div className="mt-3 space-y-2">
+                  {TOP_PAYOUTS.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-start justify-between gap-3 rounded-md bg-white/80 px-3 py-2 shadow-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-masters-ink">
+                          {item.label}: <span className="text-masters-green">{item.team}</span>
+                        </p>
+                        <p className="text-xs text-masters-ink/60">{item.detail}</p>
+                      </div>
+                      <p className="shrink-0 text-sm font-bold tabular-nums text-masters-green">
+                        {item.amount}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-masters-ink/60">
+                  Chuck total payout: $125
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-masters-green/15 bg-white/90 p-4 shadow-inner">
+                <h4 className="font-display text-base font-semibold text-masters-green">
+                  Low rounds
+                </h4>
+                <div className="mt-3 space-y-2">
+                  {LOW_ROUND_PAYOUTS.map((item) => (
+                    <div
+                      key={`${item.team}-${item.detail}`}
+                      className="flex items-start justify-between gap-3 rounded-md border border-masters-green/10 px-3 py-2"
+                    >
+                      <Badge
+                        variant="gold"
+                        className={cn("text-white shadow-sm", teamBadgeClass(item.team))}
+                      >
+                        {item.team}
+                      </Badge>
+                      <p className="min-w-0 flex-1 text-right text-sm text-masters-ink/80">
+                        {item.detail}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-wide text-masters-ink/50 md:px-6">

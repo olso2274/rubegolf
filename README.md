@@ -5,7 +5,7 @@ Live-updating **Masters fantasy pool** leaderboard for six teams and forty-eight
 - **Public home (`/`)** — live board, realtime updates, **Sync scores** (PGA fetch + DB write, rate-limited), **Reload board** (re-read Supabase only).
 - **Admin (`/admin`)** — password-only; seed edits and “Force update scores”.
 
-Data source (unofficial, public): PGA Tour `statdata.pgatour.com` JSON (`message.json` → tournament id → `leaderboard-v2mini.json` / `leaderboard-v2.json`).
+Data source (unofficial, public): PGA Tour `statdata.pgatour.com` JSON for the 2026 Masters (`R2026014` / `2026014`) with a fallback to the Masters tournament page on `pgatour.com`.
 
 ### Team scoring (best 4 of 8)
 
